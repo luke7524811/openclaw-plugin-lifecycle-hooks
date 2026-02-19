@@ -1,0 +1,120 @@
+# ============================================================
+# rm-guard.yaml — Block Destructive Commands
+# ============================================================
+#
+# WHAT IT DOES:
+#   Intercepts all exec tool calls and blocks any command that
+#   resembles `rm`, `shred`, or similar destructive patterns —
+#   across both the main agent and any sub-agents it spawns.
+#
+# WHY IT MATTERS:
+#   Agents running exec freely can accidentally (or not so
+#   accidentally) delete important files. This hook enforces
+#   a safe-by-default policy: use `trash` instead of `rm`.
+#
+# HOW TO USE:
+#   cp examples/rm-guard.yaml HOOKS.yaml
+#   # Adjust paths/messages to match your workspace.
+#
+# ============================================================
+
+version: "1"
+
+defaults:
+  # All hooks default to blocking on failure — safe posture.
+  # notifyUser: true sends a fire-and-forget Telegram notification to the
+  # session's chat (group topic, group, or DM) whenever a hook blocks.
+  # This works in addition to the block message shown in the agent's reply.
+  onFailure:
+    action: block
+    notifyUser: true
+
+hooks:
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: Any form of `rm`
+  #
+  # Catches: rm file.txt, rm -f file, rm -rf /dir, etc.
+  # Both main agent and sub-agent tool calls are covered.
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "(^|&&|;|\\|)\\s*rm\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: |
+        🚫 Blocked: `rm` is not allowed.
+        Use `trash <path>` to safely move files to the trash instead.
+        To permanently delete something, get explicit confirmation first.
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: Recursive or forced rm (belt-and-suspenders)
+  #
+  # Catches: rm -rf, rm -Rf, rm -fr, rm --recursive --force, etc.
+  # This pattern catches flags in any order.
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "rm\\s+(-[rRfF]{1,4}|--recursive|--force)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: Recursive or forced `rm` is never permitted. Use `trash`."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: shred (disk-level secure delete)
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "^shred\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: `shred` is not permitted. Use `trash` for file removal."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: rmdir (removes directories)
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "^rmdir\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: `rmdir` is not permitted. Use `trash` instead."
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: All exec calls (non-blocking audit trail)
+  #
+  # Even blocked calls get logged — the block hook fires first,
+  # but this log hook still records all attempted exec calls
+  # for forensic purposes.
+  #
+  # Remove or disable this hook if you don't need auditing.
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+    action: log
+    target: "memory/exec-audit.jsonl"
+    onFailure:
+      action: continue
+      notifyUser: false

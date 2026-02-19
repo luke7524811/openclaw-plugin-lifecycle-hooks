@@ -1,0 +1,151 @@
+# ============================================================
+# DELEGATION ENFORCEMENT HOOKS CONFIG
+# ============================================================
+#
+# Purpose: Ensure the main agent delegates heavy operations to
+# sub-agents instead of running them inline. Keeps the main
+# agent responsive and prevents context window exhaustion.
+#
+# Policy:
+#   - Main agent: only lightweight commands allowed
+#   - Sub-agents: exec freely (they're the execution environment)
+#   - All sub-agent exec calls are logged for audit
+#
+# Usage: Copy to your workspace root as HOOKS.yaml and customize.
+# ============================================================
+
+version: "1"
+
+defaults:
+  onFailure:
+    action: continue
+
+hooks:
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: npm/node package operations in main agent
+  # These can take minutes and flood the context window.
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: false
+      commandPattern: "npm\\s+(install|ci|run|test|build|publish|update)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: |
+        🚫 Delegation required: npm commands must run in a sub-agent.
+        Spawn a sub-agent for this task to keep the main agent responsive.
+        Example: "Spawn a sub-agent to run: npm install && npm test"
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: TypeScript/build compilation in main agent
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: false
+      commandPattern: "(^tsc|webpack|rollup|vite build|esbuild)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: |
+        🚫 Delegation required: compilation commands must run in a sub-agent.
+        Use the spawn tool to create a dedicated build sub-agent.
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: Python package installs in main agent
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: false
+      commandPattern: "(pip|pip3|poetry|conda)\\s+(install|update|upgrade)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Delegation required: Python package installs must run in a sub-agent."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: System package management in main agent
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: false
+      commandPattern: "(apt-get|apt|yum|dnf|brew)\\s+(install|update|upgrade|remove)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Delegation required: System package management must run in a sub-agent."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: Docker operations in main agent
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: false
+      commandPattern: "^docker\\s+(build|run|pull|push|compose)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Delegation required: Docker operations must run in a sub-agent."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: git clone (can be large and slow)
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: false
+      commandPattern: "^git\\s+clone"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Delegation required: `git clone` must run in a sub-agent."
+
+  # ──────────────────────────────────────────────────────────────
+  # INJECT: Give every sub-agent the workspace conventions
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:spawn:pre
+    action: inject_context
+    target: "/path/to/workspace/AGENTS.md"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: All sub-agent spawns (who spawned what and when)
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:spawn:pre
+    action: log
+    target: "/path/to/workspace/memory/subagent-spawns.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Sub-agent exec calls (audit what was actually run)
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:tool:pre
+    match:
+      tool: exec
+    action: log
+    target: "/path/to/workspace/memory/subagent-exec-audit.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # SUMMARIZE: Sub-agent completion summary
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:post
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "/path/to/workspace/memory/subagent-results.jsonl"
+    onFailure:
+      action: continue

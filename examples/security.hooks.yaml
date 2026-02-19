@@ -1,0 +1,128 @@
+# ============================================================
+# SECURITY-FOCUSED HOOKS CONFIG
+# ============================================================
+#
+# Purpose: Enforce command safety guardrails across all agent sessions.
+# These hooks prevent the agent from running destructive or privileged
+# commands, and log all exec calls for audit purposes.
+#
+# Usage: Copy to your workspace root as HOOKS.yaml and customize.
+# ============================================================
+
+version: "1"
+
+defaults:
+  onFailure:
+    action: block
+    notifyUser: true
+
+hooks:
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: rm (any form)
+  # Use `trash <path>` instead.
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "^rm\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: |
+        🚫 Blocked: `rm` is not allowed.
+        Use `trash <path>` to safely move files to the trash.
+        To permanently delete, request explicit confirmation from the user.
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: Recursive / forced rm
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "rm\\s+-[rRfF]"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: Recursive or forced `rm` is never permitted."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: sudo / privilege escalation
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "^sudo\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: `sudo` is not permitted in agent sessions."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: dd (disk destroyer)
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "^dd\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: `dd` is not permitted (data destruction risk)."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: chmod 777 (overly permissive)
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "chmod\\s+(777|a\\+rwx|ugo\\+rwx)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: chmod 777 creates security vulnerabilities."
+
+  # ──────────────────────────────────────────────────────────────
+  # BLOCK: curl/wget piped to shell (supply chain attack vector)
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "(curl|wget).*(\\|\\s*sh|\\|\\s*bash|\\|\\s*zsh)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: |
+        🚫 Blocked: Piping curl/wget output directly to a shell is a supply-chain risk.
+        Download the script first, review it, then execute.
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: All exec calls (non-blocking audit trail)
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+    action: log
+    target: "/path/to/workspace/memory/exec-audit.jsonl"
+    onFailure:
+      action: continue
+      notifyUser: false

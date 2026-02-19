@@ -1,0 +1,361 @@
+# ============================================================
+# kitchen-sink.yaml — Full Feature Showcase
+# ============================================================
+#
+# WHAT IT IS:
+#   A reference configuration demonstrating every hook point,
+#   every built-in action, every match filter, and every
+#   onFailure strategy — all in one annotated file.
+#
+#   This is NOT intended to be used as-is. It's a reference
+#   that you copy from, not copy wholesale.
+#
+# HOW TO READ THIS:
+#   Each section shows a different hook point.
+#   Each hook demonstrates different options.
+#   Comments explain what each field does and when to use it.
+#
+# ============================================================
+
+version: "1"
+
+# ──────────────────────────────────────────────────────────────
+# DEFAULTS
+#
+# Applied to all hooks unless overridden at the hook level.
+# ──────────────────────────────────────────────────────────────
+defaults:
+  # Default LLM model for summarize_and_log and other inference actions.
+  # Use a cheap, fast model (haiku, gemma, flash) for hook summarization.
+  model: anthropic/claude-haiku-4-5
+
+  # Default failure behavior if a hook's `onFailure` is not set.
+  # `continue` means hook failures don't block the pipeline.
+  onFailure:
+    action: continue
+    notifyUser: false
+
+hooks:
+
+  # ============================================================
+  # TURN:PRE — Before the agent processes a user turn
+  # ============================================================
+  # Fires when a user prompt arrives, before the agent starts.
+  # Useful for: context injection, prompt logging, pre-checks.
+
+  # Log the raw prompt to a file
+  - point: turn:pre
+    action: log
+    target: "memory/logs/turns.jsonl"
+    onFailure:
+      action: continue
+
+  # Inject a safety reminder before every turn
+  - point: turn:pre
+    action: inject_context
+    target: "memory/safety-reminder.md"
+    onFailure:
+      action: continue
+
+  # Run a pre-turn shell script (e.g. check system health)
+  - point: turn:pre
+    action: exec_script
+    target: "hooks/pre-turn-check.sh"
+    enabled: false  # Disabled until script is created
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # TURN:POST — After the agent finalizes a response
+  # ============================================================
+  # Fires when the agent's response is complete.
+  # Useful for: summarization, response logging, post-checks.
+
+  # Summarize the completed turn and append to a topic file
+  - point: turn:post
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "memory/logs/turn-summaries.jsonl"
+    onFailure:
+      action: continue
+
+  # Topic-specific summary: only fires for topic 42
+  - point: turn:post
+    match:
+      topicId: 42
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "memory/topics/topic-42.md"
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # TURN:TOOL:PRE — Before a tool call in the main agent
+  # ============================================================
+  # Fires before every tool invocation.
+  # The match filter narrows which tools/commands trigger the hook.
+  # This is the primary enforcement point for safety policies.
+
+  # BLOCK: Any form of `rm`
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      commandPattern: "(^|&&|;|\\|)\\s*rm\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: |
+        🚫 Blocked: `rm` is not allowed.
+        Use `trash <path>` instead.
+
+  # BLOCK: Recursive/forced rm (belt and suspenders)
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      commandPattern: "rm\\s+-[rRfF]"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: recursive rm is never permitted."
+
+  # BLOCK: sudo (main agent only — isSubAgent: false)
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: false       # Only fires in main agent sessions
+      commandPattern: "^sudo\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: `sudo` is not permitted in main agent."
+
+  # BLOCK: npm operations in main agent (must delegate to sub-agent)
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: false
+      commandPattern: "npm\\s+(install|ci|run|test|build)"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Delegation required: Run npm commands in a sub-agent."
+
+  # LOG: All exec calls (non-blocking audit trail)
+  - point: turn:tool:pre
+    match:
+      tool: exec
+    action: log
+    target: "memory/logs/exec-audit.jsonl"
+    onFailure:
+      action: continue
+
+  # LOG: Browser tool calls (useful for debugging web automation)
+  - point: turn:tool:pre
+    match:
+      tool: browser
+    action: log
+    target: "memory/logs/browser-calls.jsonl"
+    onFailure:
+      action: continue
+
+  # CUSTOM MATCHER: Use a JS module for complex match logic
+  - point: turn:tool:pre
+    match:
+      custom: "hooks/matchers/sensitive-file-check.js"
+      # The custom module exports: (context: HookContext) => boolean | Promise<boolean>
+      # Combine with other filters (AND logic still applies)
+    action: block
+    enabled: false  # Enable once matcher module is written
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: Sensitive file access detected."
+
+  # ============================================================
+  # TURN:TOOL:POST — After a tool call resolves
+  # ============================================================
+  # Fires after a tool completes (success or error).
+  # Useful for: result logging, output validation.
+
+  # Log tool results (can be high volume)
+  - point: turn:tool:post
+    action: log
+    target: "memory/logs/tool-results.jsonl"
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # SUBAGENT:SPAWN:PRE — Before the main agent spawns a sub-agent
+  # ============================================================
+  # Fires on the MAIN AGENT side, just before spawning.
+  # Full gate: can block the spawn entirely.
+
+  # Log all spawns (who spawned what, when)
+  - point: subagent:spawn:pre
+    action: log
+    target: "memory/logs/subagent-spawns.jsonl"
+    onFailure:
+      action: continue
+
+  # Inject AGENTS.md into every sub-agent spawn
+  - point: subagent:spawn:pre
+    action: inject_context
+    target: "AGENTS.md"
+    onFailure:
+      action: continue
+
+  # RETRY example: summarize spawn with retry on failure
+  - point: subagent:spawn:pre
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "memory/logs/subagent-spawns-summary.jsonl"
+    onFailure:
+      action: retry       # Retry the action before failing
+      retries: 3          # Up to 3 retries with exponential backoff
+      notifyUser: false
+
+  # ============================================================
+  # SUBAGENT:PRE — Sub-agent starts its session
+  # ============================================================
+  # Fires on the SUB-AGENT side when it begins processing.
+  # Use for sub-agent-specific rules and context injection.
+
+  # Inject topic context into sub-agent sessions
+  - point: subagent:pre
+    action: inject_context
+    target: "memory/safety-reminder.md"
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # SUBAGENT:POST — Sub-agent completes
+  # ============================================================
+  # Fires after a sub-agent finishes (success or error).
+  # Useful for: result capture, completion notifications.
+
+  # Summarize sub-agent output
+  - point: subagent:post
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "memory/logs/subagent-results.jsonl"
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # SUBAGENT:TOOL:PRE — Before a tool call inside a sub-agent
+  # ============================================================
+  # Mirrors turn:tool:pre but for sub-agent tool calls.
+  # Essential: enforce the same safety policies in sub-agents.
+
+  # Enforce rm guard in sub-agents too
+  - point: subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "(^|&&|;|\\|)\\s*rm\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked in sub-agent: Use `trash` instead of `rm`."
+
+  # Allow exec freely in sub-agents (they're the execution env)
+  # but still log for audit
+  - point: subagent:tool:pre
+    match:
+      tool: exec
+    action: log
+    target: "memory/logs/subagent-exec-audit.jsonl"
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # SUBAGENT:TOOL:POST — After a tool call inside a sub-agent
+  # ============================================================
+
+  # Log sub-agent tool results (optional, can be high volume)
+  - point: subagent:tool:post
+    action: log
+    target: "memory/logs/subagent-tool-results.jsonl"
+    enabled: false   # Disabled by default — high volume
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # HEARTBEAT:PRE / HEARTBEAT:POST — Heartbeat cycle events
+  # ============================================================
+  # heartbeat:pre fires before each heartbeat check.
+  # heartbeat:post fires after the cycle completes.
+
+  # Log heartbeat start
+  - point: heartbeat:pre
+    action: log
+    target: "memory/logs/heartbeats.jsonl"
+    onFailure:
+      action: continue
+
+  # Push heartbeat data to external dashboard
+  - point: heartbeat:post
+    action: exec_script
+    target: "hooks/push-heartbeat.sh"
+    enabled: false   # Enable once push script is created
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # CRON:PRE / CRON:POST — Cron job lifecycle events
+  # ============================================================
+  # cron:pre fires before any cron job executes.
+  # cron:post fires after a cron job completes.
+  # Context includes HOOK_CRON_JOB with the job name.
+
+  # Log cron job start
+  - point: cron:pre
+    action: log
+    target: "memory/logs/cron.jsonl"
+    onFailure:
+      action: continue
+
+  # Log cron job completion (with timing data)
+  - point: cron:post
+    action: log
+    target: "memory/logs/cron.jsonl"
+    onFailure:
+      action: continue
+
+  # Notify on cron completion (webhook)
+  - point: cron:post
+    action: exec_script
+    target: "hooks/notify-slack.sh"
+    enabled: false   # Enable once webhook script is created
+    onFailure:
+      action: continue
+
+  # ============================================================
+  # ADVANCED: SESSION PATTERN MATCHING
+  # ============================================================
+  # Use sessionPattern to match specific channels or groups.
+
+  # Log only for Telegram group sessions
+  - point: turn:pre
+    match:
+      sessionPattern: "telegram:group:"
+    action: log
+    target: "memory/logs/telegram-turns.jsonl"
+    enabled: false   # Example — enable if you need channel-specific logging
+    onFailure:
+      action: continue
+
+  # Different behavior for sub-agent sessions
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      isSubAgent: true     # Only in sub-agent sessions
+      commandPattern: "^docker\\s+(build|run)"
+    action: log
+    target: "memory/logs/docker-in-subagent.jsonl"
+    onFailure:
+      action: continue

@@ -1,0 +1,143 @@
+# ============================================================
+# topic-logging.yaml — Auto-Summarize Turns to Topic Files
+# ============================================================
+#
+# WHAT IT DOES:
+#   Automatically logs and summarizes every agent turn to
+#   topic-specific memory files. Useful for forum-style chat
+#   where each "topic" has a persistent context file.
+#
+#   Two strategies are shown:
+#     1. Structured JSONL logging (fast, machine-readable)
+#     2. LLM summarization (human-readable, costs tokens)
+#
+# WHY IT MATTERS:
+#   After a context compaction or session restart, the agent
+#   loses in-memory state. Topic files act as persistent state
+#   that survives restarts — IF they're kept up to date.
+#   These hooks do that automatically.
+#
+# HOW TO USE:
+#   cp examples/topic-logging.yaml HOOKS.yaml
+#   # Set `model` to a fast/cheap model like haiku.
+#   # Set the `target` paths to match your workspace layout.
+#   # Set `topicId` to match your forum topic numbers.
+#
+# ============================================================
+
+version: "1"
+
+defaults:
+  # Use a cheap, fast model for summarization.
+  # Override per-hook if you want more detail on specific topics.
+  model: anthropic/claude-haiku-4-5
+
+  # Logging should never block the pipeline.
+  onFailure:
+    action: continue
+    notifyUser: false
+
+hooks:
+  # ──────────────────────────────────────────────────────────────
+  # STRATEGY 1: Raw JSONL logging (no LLM cost, instant)
+  #
+  # Logs every turn:pre and turn:post event to a structured file.
+  # Captures: timestamp, sessionKey, topicId, prompt, response.
+  # ──────────────────────────────────────────────────────────────
+
+  # Log turn start (captures user prompt)
+  - point: turn:pre
+    action: log
+    target: "memory/logs/turns.jsonl"
+    onFailure:
+      action: continue
+
+  # Log turn end (captures agent response)
+  - point: turn:post
+    action: log
+    target: "memory/logs/turns.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # STRATEGY 2: LLM summarization to topic context files
+  #
+  # After each turn completes, summarize the exchange and append
+  # to the topic's dedicated context file. The agent reads this
+  # file at the start of each session to restore context.
+  #
+  # Cost: ~1 LLM call per turn (use haiku to keep it cheap).
+  # ──────────────────────────────────────────────────────────────
+
+  # Summarize all topics to a shared rolling log
+  - point: turn:post
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "memory/logs/turn-summaries.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # TOPIC-SPECIFIC SUMMARIES
+  #
+  # Uncomment and duplicate these blocks for each forum topic
+  # you want to track individually. Set topicId to the Telegram
+  # forum topic number.
+  # ──────────────────────────────────────────────────────────────
+
+  # Topic 42: Project planning
+  - point: turn:post
+    match:
+      topicId: 42
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "memory/topics/topic-42.md"
+    onFailure:
+      action: continue
+
+  # Topic 42: Lifecycle hooks project
+  - point: turn:post
+    match:
+      topicId: 42
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "memory/topics/topic-42.md"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # TOOL CALL LOGGING (Optional)
+  #
+  # Logs every tool invocation with its arguments.
+  # Useful for debugging — can generate high volume.
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    action: log
+    target: "memory/logs/tool-calls.jsonl"
+    onFailure:
+      action: continue
+
+  - point: turn:tool:post
+    action: log
+    target: "memory/logs/tool-results.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # SUBAGENT ACTIVITY LOGGING
+  #
+  # Log what sub-agents spawn for and what they produce.
+  # Summarize their completion for the human-readable log.
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:spawn:pre
+    action: log
+    target: "memory/logs/subagent-spawns.jsonl"
+    onFailure:
+      action: continue
+
+  - point: subagent:post
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "memory/logs/subagent-completions.jsonl"
+    onFailure:
+      action: continue

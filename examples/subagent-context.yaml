@@ -1,0 +1,129 @@
+# ============================================================
+# subagent-context.yaml — Inject Context into Sub-Agents
+# ============================================================
+#
+# WHAT IT DOES:
+#   Automatically injects shared context files into every
+#   sub-agent before it starts processing. Ensures sub-agents
+#   always have up-to-date workspace conventions, safety rules,
+#   and project-specific context — without relying on the main
+#   agent to manually include them in each spawn message.
+#
+# WHY IT MATTERS:
+#   Sub-agents start with a blank slate. Without context
+#   injection, they may:
+#     - Use `rm` instead of `trash`
+#     - Write files to wrong locations
+#     - Miss project conventions documented in AGENTS.md
+#     - Lack topic-specific background that the main agent has
+#
+# HOW TO USE:
+#   cp examples/subagent-context.yaml HOOKS.yaml
+#   Edit the `target` paths to point to your actual context files.
+#
+# NOTE: inject_context is pending full OpenClaw API wiring.
+#   Currently it logs what would be injected. Full injection
+#   will be enabled in a future release.
+#
+# ============================================================
+
+version: "1"
+
+defaults:
+  # Context injection should never block the pipeline.
+  onFailure:
+    action: continue
+    notifyUser: false
+
+hooks:
+  # ──────────────────────────────────────────────────────────────
+  # INJECT: Workspace conventions (AGENTS.md)
+  #
+  # Fires on the main agent side, just before spawning.
+  # The AGENTS.md file contains workspace rules, safety policies,
+  # and conventions that every sub-agent should follow.
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:spawn:pre
+    action: inject_context
+    target: "AGENTS.md"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # INJECT: Topic-specific context files
+  #
+  # If the sub-agent is being spawned in the context of a
+  # specific forum topic, inject that topic's memory file.
+  # The topicId filter ensures this only fires for that topic.
+  #
+  # Duplicate this block for each forum topic you care about.
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:spawn:pre
+    match:
+      topicId: 42
+    action: inject_context
+    target: "memory/topics/topic-42.md"
+    onFailure:
+      action: continue
+
+  - point: subagent:spawn:pre
+    match:
+      topicId: 42
+    action: inject_context
+    target: "memory/topics/topic-42.md"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # INJECT: Safety reminder on sub-agent startup
+  #
+  # Fires on the sub-agent side at the start of its session.
+  # Use this for reminders that the main agent won't include
+  # in the spawn message (e.g., "use trash not rm").
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:pre
+    action: inject_context
+    target: "memory/safety-reminder.md"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Sub-agent spawns (for audit / awareness)
+  #
+  # Non-blocking. Records when sub-agents are spawned, what
+  # session they belong to, and any topic context.
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:spawn:pre
+    action: log
+    target: "memory/logs/subagent-spawns.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Sub-agent completion
+  #
+  # Records when sub-agents finish. Useful for debugging
+  # and for tracking which sub-agents were productive.
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:post
+    action: log
+    target: "memory/logs/subagent-completions.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # INJECT + GUARD: Sub-agent tool safety
+  #
+  # Even with injected context, sub-agents should be guarded
+  # against destructive commands. Pair this with rm-guard.yaml
+  # or add the block hooks inline here.
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "(^|&&|;|\\|)\\s*rm\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked in sub-agent: Use `trash` instead of `rm`."

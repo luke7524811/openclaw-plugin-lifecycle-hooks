@@ -1,0 +1,82 @@
+version: "1"
+
+defaults:
+  model: anthropic/claude-opus-4-6
+  onFailure:
+    action: continue
+    notifyUser: false
+
+hooks:
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 1: rm Guard
+  # Block any exec tool call whose command matches "rm " (with a space).
+  # This prevents accidental file deletion by the agent.
+  # Use `trash` instead — see AGENTS.md.
+  # ────────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      tool: exec
+      commandPattern: "^rm\\s"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: |
+        🚫 Blocked: rm is not allowed. Use `trash <path>` instead to safely
+        move files to trash. This policy is defined in HOOKS.yaml (rm guard).
+
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 2: Topic Activity Logger
+  # Log every turn in a specific forum topic to a daily log file.
+  # This is a non-blocking observability hook.
+  # ────────────────────────────────────────────────────────────────
+  - point:
+      - turn:pre
+      - turn:post
+    match:
+      topicId: 42
+    action: log
+    target: "/path/to/workspace/memory/hooks-log.jsonl"
+    onFailure:
+      action: continue
+      notifyUser: false
+
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 3: Subagent Spawn Logger
+  # Summarize every subagent spawn with an LLM and append to memory.
+  # Uses the default model unless overridden here.
+  # ────────────────────────────────────────────────────────────────
+  - point: subagent:spawn:pre
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "/path/to/workspace/memory/subagent-spawns.jsonl"
+    onFailure:
+      action: continue
+
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 4: Context Injection on Turn Start
+  # Inject a safety reminder file before each turn (disabled by default).
+  # ────────────────────────────────────────────────────────────────
+  - point: turn:pre
+    action: inject_context
+    target: "/path/to/workspace/memory/safety-reminder.md"
+    enabled: false
+    onFailure:
+      action: continue
+
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 5: Block dangerous shell patterns (multi-point)
+  # Catch rm -rf and similar destructive patterns at both main and
+  # subagent tool levels.
+  # ────────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+      commandPattern: "rm\\s+-[rRfF]"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: Recursive/forced rm detected. This operation is not permitted."

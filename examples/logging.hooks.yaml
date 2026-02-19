@@ -1,0 +1,129 @@
+# ============================================================
+# LOGGING-FOCUSED HOOKS CONFIG
+# ============================================================
+#
+# Purpose: Comprehensive observability across all agent activity.
+# Log turns, tool calls, subagent spawns, and cron jobs to
+# structured JSONL files and human-readable summaries.
+#
+# Usage: Copy to your workspace root as HOOKS.yaml and customize.
+# ============================================================
+
+version: "1"
+
+defaults:
+  model: anthropic/claude-haiku-4-5
+  onFailure:
+    action: continue
+    notifyUser: false
+
+hooks:
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Every turn start (captures prompt and context)
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:pre
+    action: log
+    target: "/path/to/workspace/memory/logs/turns.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Every turn end (captures response/output)
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:post
+    action: log
+    target: "/path/to/workspace/memory/logs/turns.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # SUMMARIZE: End-of-turn summary for human review
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:post
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "/path/to/workspace/memory/logs/turn-summaries.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: All tool calls (pre-execution)
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    action: log
+    target: "/path/to/workspace/memory/logs/tool-calls.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Tool results (post-execution)
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:tool:post
+    action: log
+    target: "/path/to/workspace/memory/logs/tool-results.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: exec calls specifically (separate high-signal stream)
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - turn:tool:pre
+      - subagent:tool:pre
+    match:
+      tool: exec
+    action: log
+    target: "/path/to/workspace/memory/logs/exec-calls.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Subagent spawns
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:spawn:pre
+    action: log
+    target: "/path/to/workspace/memory/logs/subagent-spawns.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # SUMMARIZE: Subagent results on completion
+  # ──────────────────────────────────────────────────────────────
+  - point: subagent:post
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "/path/to/workspace/memory/logs/subagent-results.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Cron job executions
+  # ──────────────────────────────────────────────────────────────
+  - point:
+      - cron:pre
+      - cron:post
+    action: log
+    target: "/path/to/workspace/memory/logs/cron.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # LOG: Heartbeat events (for uptime monitoring)
+  # ──────────────────────────────────────────────────────────────
+  - point: heartbeat:pre
+    action: log
+    target: "/path/to/workspace/memory/logs/heartbeats.jsonl"
+    onFailure:
+      action: continue
+
+  # ──────────────────────────────────────────────────────────────
+  # TOPIC: Log turns for specific forum topics
+  # Add more blocks like this for each topic you want to track.
+  # ──────────────────────────────────────────────────────────────
+  - point: turn:post
+    match:
+      topicId: 42
+    action: summarize_and_log
+    target: "/path/to/workspace/memory/topics/topic-42.md"
+    onFailure:
+      action: continue
