@@ -569,6 +569,16 @@ import type {
 
 ---
 
+## Support
+
+If this plugin has been useful to you, consider supporting its development:
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/luke7524811)
+
+[Support via Buy Me a Coffee](https://buymeacoffee.com/luke7524811)
+
+---
+
 ## License
 
 MIT © OpenClaw Contributors
