@@ -1,6 +1,6 @@
 {
   "name": "@fractal-ai/plugin-lifecycle-hooks",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Enforced lifecycle hook gates for OpenClaw agent pipelines",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
