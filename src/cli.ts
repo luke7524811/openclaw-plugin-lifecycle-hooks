@@ -84,13 +84,11 @@ async function writeConfig(filePath: string, config: HooksConfig): Promise<void>
 
 /**
  * Generate a display name for a hook (for CLI output).
- * Uses the first 'name' field from match criteria, or falls back to a positional index.
+ * Uses the top-level 'name' field, or falls back to a positional index.
  */
 function getHookDisplayName(hook: HookDefinition, index: number): string {
-  // Check if hook has a name field in match (some configs use it)
-  const matchObj = hook.match as any;
-  if (matchObj?.name && typeof matchObj.name === 'string') {
-    return matchObj.name;
+  if ((hook as any).name && typeof (hook as any).name === 'string') {
+    return (hook as any).name;
   }
 
   // Otherwise use action + point as identifier
@@ -99,7 +97,7 @@ function getHookDisplayName(hook: HookDefinition, index: number): string {
 }
 
 /**
- * Find a hook by name (supports positional index like "hook-3" or match.name field).
+ * Find a hook by name (supports positional index like "hook-3" or top-level name field).
  */
 function findHookByName(
   hooks: HookDefinition[],
@@ -114,11 +112,10 @@ function findHookByName(
     }
   }
 
-  // Try match.name field
+  // Try top-level name field
   for (let i = 0; i < hooks.length; i++) {
     const hook = hooks[i]!;
-    const matchObj = hook.match as any;
-    if (matchObj?.name === name) {
+    if ((hook as any).name === name) {
       return { hook, index: i };
     }
   }
