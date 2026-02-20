@@ -74,6 +74,64 @@ See [docs/QUICKSTART.md](./docs/QUICKSTART.md) for detailed setup instructions.
 
 ---
 
+## CLI Management
+
+The plugin includes a CLI tool for managing hooks without manually editing YAML files:
+
+```bash
+# List all hooks with their status
+openclaw-hooks list
+
+# Disable a hook by index or name
+openclaw-hooks disable hook-2
+
+# Enable a hook
+openclaw-hooks enable hook-2
+
+# Force hot-reload of HOOKS.yaml
+openclaw-hooks reload
+```
+
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `openclaw-hooks list` | List all hooks with their enabled/disabled status, hook points, and actions |
+| `openclaw-hooks enable <name>` | Enable a hook by name or index (e.g. `hook-3`) |
+| `openclaw-hooks disable <name>` | Disable a hook by name or index |
+| `openclaw-hooks reload` | Touch HOOKS.yaml to trigger the fs.watch hot-reload |
+| `openclaw-hooks help` | Show usage information |
+
+### Hook Identification
+
+Hooks are identified by:
+1. **Index**: `hook-1`, `hook-2`, etc. (1-based, matches list output)
+2. **Name field** (if your config includes `match.name`)
+
+Example:
+```bash
+# List to see hook numbers
+openclaw-hooks list
+
+# Output:
+# 1  hook-1 (block@turn:tool:pre)  turn:tool:pre  block  ✅ yes
+# 2  hook-2 (log@turn:post)       turn:post      log    ✅ yes
+
+# Disable by index
+openclaw-hooks disable hook-1
+```
+
+### Hot Reload
+
+Changes made via the CLI trigger the plugin's fs.watch hot-reload automatically — **no gateway restart needed**. The reload typically completes in < 300ms.
+
+### Environment Variables
+
+- `OPENCLAW_HOOKS_CONFIG` — Override path to HOOKS.yaml
+- `OPENCLAW_WORKSPACE` — Workspace directory (default: `~/.openclaw/workspace`)
+
+---
+
 ## Core Concepts
 
 ### Hook Points

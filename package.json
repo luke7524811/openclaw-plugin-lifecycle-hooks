@@ -4,6 +4,9 @@
   "description": "Enforced lifecycle hook gates for OpenClaw agent pipelines",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "openclaw-hooks": "./dist/cli.js"
+  },
   "files": [
     "dist",
     "hooks.example.yaml"
