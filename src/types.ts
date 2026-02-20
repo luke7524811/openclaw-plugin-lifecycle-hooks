@@ -92,6 +92,8 @@ export interface HookDefinition {
   point: HookPoint | HookPoint[];
   /** Optional filters to narrow when the hook fires. */
   match?: MatchFilter;
+  /** Source file path (auto-populated by discovery). */
+  _source?: string;
   /** The action to execute when the hook fires. */
   action: HookAction;
   /**
@@ -232,6 +234,13 @@ export interface GateEngine {
   loadConfig(path: string): Promise<HooksConfig>;
 
   /**
+   * Load root HOOKS.yaml and auto-discover additional configs in workspace.
+   * @param rootConfigPath Path to the primary HOOKS.yaml
+   * @param workspaceRoot Root directory to scan for additional HOOKS.yaml files
+   */
+  loadConfigWithDiscovery(rootConfigPath: string, workspaceRoot: string): Promise<DiscoveryResult>;
+
+  /**
    * Execute all hooks registered for a given point.
    * Returns results for each hook that fired.
    * If any result has passed=false, the pipeline should be blocked.
@@ -242,6 +251,29 @@ export interface GateEngine {
    * Return all enabled HookDefinitions that apply to the given point.
    */
   getHooksForPoint(point: HookPoint): HookDefinition[];
+}
+
+// ─── Discovery ────────────────────────────────────────────────────────────────
+
+/** Warning about conflicting hooks across discovered configs. */
+export interface ConflictWarning {
+  type: 'duplicate-name' | 'overlapping-match';
+  hookName?: string;
+  sources: string[];
+  message: string;
+}
+
+/** Options for auto-discovery scanning. */
+export interface DiscoveryOptions {
+  maxDepth?: number;
+  ignore?: string[];
+}
+
+/** Result of discovery + merge operation. */
+export interface DiscoveryResult {
+  configs: Array<{ path: string; config: HooksConfig }>;
+  conflicts: ConflictWarning[];
+  totalHooks: number;
 }
 
 // ─── Plugin Interface ─────────────────────────────────────────────────────────

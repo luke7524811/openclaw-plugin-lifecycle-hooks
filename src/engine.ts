@@ -5,12 +5,14 @@
  * action dispatch, and result aggregation.
  */
 
-import type { GateEngine, HooksConfig, HookPoint, HookContext, HookResult, HookDefinition } from './types';
+import type { GateEngine, HooksConfig, HookPoint, HookContext, HookResult, HookDefinition, DiscoveryResult } from './types';
 import { loadHooksConfig } from './config';
 import { shouldFire } from './matcher';
 import { dispatchAction } from './actions/index';
 import { notifyUser } from './notify';
 import { resolveHookTemplateVars } from './template';
+import { scanForHooksConfigs, mergeConfigs, detectConflicts } from './discovery';
+import * as path from 'path';
 
 export class LifecycleGateEngine implements GateEngine {
   private config: HooksConfig | null = null;
@@ -38,6 +40,85 @@ export class LifecycleGateEngine implements GateEngine {
   async reloadConfig(): Promise<HooksConfig | null> {
     if (!this.configPath) return null;
     return this.loadConfig(this.configPath);
+  }
+
+  /**
+   * Load root HOOKS.yaml and auto-discover additional configs in workspace.
+   * Merges all configs, tags hooks with _source, detects conflicts.
+   * 
+   * @param rootConfigPath - Path to the primary HOOKS.yaml
+   * @param workspaceRoot - Root directory to scan for additional HOOKS.yaml files
+   * @returns Discovery result with merged config, conflicts, and metadata
+   */
+  async loadConfigWithDiscovery(
+    rootConfigPath: string,
+    workspaceRoot: string
+  ): Promise<DiscoveryResult> {
+    const absoluteRootPath = path.resolve(rootConfigPath);
+    const absoluteWorkspaceRoot = path.resolve(workspaceRoot);
+
+    // 1. Load the root config as primary
+    const primaryConfig = await loadHooksConfig(absoluteRootPath, absoluteRootPath);
+
+    // 2. Scan workspace for additional HOOKS.yaml files
+    const allConfigPaths = await scanForHooksConfigs(absoluteWorkspaceRoot);
+
+    // 3. Filter out the root config from discovered paths
+    const secondaryPaths = allConfigPaths.filter(
+      (p) => path.resolve(p) !== absoluteRootPath
+    );
+
+    console.log(
+      `[lifecycle-hooks/engine] Auto-discovery found ${secondaryPaths.length} additional HOOKS.yaml file(s)`
+    );
+
+    // 4. Load and validate each discovered config
+    const secondaryConfigs: Array<{ path: string; config: HooksConfig }> = [];
+    for (const configPath of secondaryPaths) {
+      try {
+        const config = await loadHooksConfig(configPath, configPath);
+        secondaryConfigs.push({ path: configPath, config });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[lifecycle-hooks/engine] Skipping invalid config at "${configPath}": ${message}`
+        );
+      }
+    }
+
+    // 5. Merge all configs (root is primary)
+    const mergedConfig = mergeConfigs(
+      primaryConfig,
+      ...secondaryConfigs.map((sc) => sc.config)
+    );
+
+    // 6. Detect conflicts
+    const allConfigs = [
+      { path: absoluteRootPath, config: primaryConfig },
+      ...secondaryConfigs,
+    ];
+    const conflicts = detectConflicts(allConfigs);
+
+    // Log warnings for conflicts
+    for (const conflict of conflicts) {
+      console.warn(
+        `[lifecycle-hooks/engine] ${conflict.type}: ${conflict.message} — sources: ${conflict.sources.join(', ')}`
+      );
+    }
+
+    // 7. Store merged config internally
+    this.config = mergedConfig;
+    this.configPath = absoluteRootPath;
+
+    console.log(
+      `[lifecycle-hooks/engine] Loaded ${mergedConfig.hooks.length} total hook(s) from ${allConfigs.length} file(s)`
+    );
+
+    return {
+      configs: allConfigs,
+      conflicts,
+      totalHooks: mergedConfig.hooks.length,
+    };
   }
 
   // ─── Hook Filtering ────────────────────────────────────────────────────────
