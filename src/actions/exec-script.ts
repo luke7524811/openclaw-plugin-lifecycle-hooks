@@ -7,6 +7,8 @@
 
 import { execFile } from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs/promises';
+import * as os from 'os';
 import type { HookContext, HookResult, HookDefinition } from '../types';
 import { interpolateVariables } from '../utils/interpolate';
 
@@ -67,7 +69,11 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
  * Execute a shell script as a hook action.
- * The script path is read from `hook.target`.
+ * The script can be:
+ * - A file path from `hook.target` (takes precedence)
+ * - Inline script content from `hook.script`
+ * 
+ * If neither is provided, the hook fails.
  * Context is passed as environment variables (HOOK_POINT, HOOK_TOOL, etc.).
  *
  * Exit code 0 → passed=true
@@ -78,40 +84,84 @@ export async function executeExecScript(
   context: HookContext,
   startTime: number
 ): Promise<HookResult> {
-  if (!hook.target) {
-    console.warn(`[lifecycle-hooks/exec-script] No script target specified. Hook point: ${context.point}`);
-    return {
-      passed: true,
-      action: 'exec_script',
-      message: 'No script target configured; exec_script skipped.',
-      duration: Date.now() - startTime,
-    };
-  }
+  let scriptPath: string;
+  let isTemporary = false;
+  let tempFilePath: string | undefined;
 
-  // Interpolate variables in the script path
-  const scriptPath = interpolateVariables(hook.target, context);
-
-  // Security check
-  const denied = isDeniedScript(scriptPath);
-  if (denied) {
-    console.error(`[lifecycle-hooks/exec-script] BLOCKED: ${denied}`);
+  // Determine script source: target (file path) takes precedence over inline script
+  if (hook.target) {
+    // File path mode
+    scriptPath = interpolateVariables(hook.target, context);
+  } else if (hook.script) {
+    // Inline script mode: write to temp file
+    try {
+      const tmpDir = os.tmpdir();
+      const randomSuffix = Math.random().toString(36).substring(2, 15);
+      tempFilePath = path.join(tmpDir, `hook-exec-${randomSuffix}.sh`);
+      
+      await fs.writeFile(tempFilePath, hook.script, { mode: 0o755 });
+      scriptPath = tempFilePath;
+      isTemporary = true;
+      
+      console.log(`[lifecycle-hooks/exec-script] Created temporary script: ${tempFilePath}`);
+    } catch (err) {
+      const duration = Date.now() - startTime;
+      const msg = `Failed to create temporary script file: ${err instanceof Error ? err.message : String(err)}`;
+      console.error(`[lifecycle-hooks/exec-script] ${msg}`);
+      return {
+        passed: false,
+        action: 'exec_script',
+        message: msg,
+        duration,
+      };
+    }
+  } else {
+    // Neither target nor script provided
+    const duration = Date.now() - startTime;
+    const msg = 'exec_script requires either "target" (file path) or "script" (inline content)';
+    console.error(`[lifecycle-hooks/exec-script] ${msg}. Hook point: ${context.point}`);
     return {
       passed: false,
       action: 'exec_script',
-      message: denied,
-      duration: Date.now() - startTime,
+      message: msg,
+      duration,
     };
+  }
+
+  // Security check (skip for temporary files we just created)
+  if (!isTemporary) {
+    const denied = isDeniedScript(scriptPath);
+    if (denied) {
+      console.error(`[lifecycle-hooks/exec-script] BLOCKED: ${denied}`);
+      return {
+        passed: false,
+        action: 'exec_script',
+        message: denied,
+        duration: Date.now() - startTime,
+      };
+    }
   }
 
   const env = buildEnvVars(context);
   const timeoutMs = DEFAULT_TIMEOUT_MS;
 
   console.log(
-    `[lifecycle-hooks/exec-script] Executing script "${scriptPath}" at ${context.point}` +
+    `[lifecycle-hooks/exec-script] Executing ${isTemporary ? 'inline' : 'file'} script "${scriptPath}" at ${context.point}` +
     (context.toolName ? ` (tool: ${context.toolName})` : '')
   );
 
   return new Promise<HookResult>((resolve) => {
+    const cleanup = async () => {
+      if (isTemporary && tempFilePath) {
+        try {
+          await fs.unlink(tempFilePath);
+          console.log(`[lifecycle-hooks/exec-script] Cleaned up temporary script: ${tempFilePath}`);
+        } catch (err) {
+          console.warn(`[lifecycle-hooks/exec-script] Failed to clean up temp file ${tempFilePath}: ${err}`);
+        }
+      }
+    };
+
     const child = execFile(
       scriptPath,
       [],
@@ -120,7 +170,7 @@ export async function executeExecScript(
         timeout: timeoutMs,
         maxBuffer: 1024 * 1024, // 1MB output buffer
       },
-      (error, stdout, stderr) => {
+      async (error, stdout, stderr) => {
         const duration = Date.now() - startTime;
 
         if (stdout) {
@@ -143,6 +193,7 @@ export async function executeExecScript(
             result.injectedContent = stdout.trim();
           }
 
+          await cleanup();
           resolve(result);
           return;
         }
@@ -151,6 +202,7 @@ export async function executeExecScript(
         if (error.killed || (error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
           const msg = `Script "${scriptPath}" timed out after ${timeoutMs}ms`;
           console.error(`[lifecycle-hooks/exec-script] TIMEOUT: ${msg}`);
+          await cleanup();
           resolve({
             passed: false,
             action: 'exec_script',
@@ -165,6 +217,7 @@ export async function executeExecScript(
         if (errCode === 'ENOENT') {
           const msg = `Script not found: "${scriptPath}"`;
           console.error(`[lifecycle-hooks/exec-script] ${msg}`);
+          await cleanup();
           resolve({
             passed: false,
             action: 'exec_script',
@@ -177,6 +230,7 @@ export async function executeExecScript(
         if (errCode === 'EACCES') {
           const msg = `Script not executable: "${scriptPath}" (permission denied)`;
           console.error(`[lifecycle-hooks/exec-script] ${msg}`);
+          await cleanup();
           resolve({
             passed: false,
             action: 'exec_script',
@@ -191,6 +245,7 @@ export async function executeExecScript(
         console.warn(
           `[lifecycle-hooks/exec-script] Script "${scriptPath}" exited with code ${error.code ?? 'unknown'}: ${exitMsg.slice(0, 200)}`
         );
+        await cleanup();
         resolve({
           passed: false,
           action: 'exec_script',

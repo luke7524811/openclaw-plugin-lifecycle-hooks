@@ -254,12 +254,13 @@ describe('exec_script action', () => {
     expect(result.message).toContain('not found');
   });
 
-  it('returns passed=true (skip) when no target is specified', async () => {
+  it('returns passed=false (error) when no target or script is specified', async () => {
     const { executeExecScript } = await import('../src/actions/exec-script');
-    const hook = { ...baseHook, action: 'exec_script' }; // no target
+    const hook = { ...baseHook, action: 'exec_script' }; // no target, no script
     const result = await executeExecScript(hook, baseContext, Date.now());
-    expect(result.passed).toBe(true);
-    expect(result.message).toContain('skipped');
+    expect(result.passed).toBe(false);
+    expect(result.message).toContain('requires either "target"');
+    expect(result.message).toContain('or "script"');
   });
 
   it('passes hook context as environment variables', async () => {

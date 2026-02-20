@@ -112,6 +112,16 @@ function validateHookDefinition(hook: unknown, index: number): HookDefinition {
     }
   }
 
+  // Validate optional 'script' (inline script content)
+  if ('script' in h && h.script !== undefined) {
+    if (typeof h.script !== 'string') {
+      throw new ConfigValidationError(
+        `hooks[${index}].script must be a string`,
+        `hooks[${index}].script`
+      );
+    }
+  }
+
   // Validate optional 'lastN'
   if ('lastN' in h && h.lastN !== undefined) {
     const lastN = h.lastN;
