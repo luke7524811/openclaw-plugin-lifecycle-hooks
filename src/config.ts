@@ -233,8 +233,14 @@ function validateConfig(raw: unknown): HooksConfig {
  * Load and validate a HOOKS.yaml file from disk.
  * Throws ConfigValidationError if validation fails.
  * Throws native fs errors if the file cannot be read.
+ * 
+ * @param filePath - Path to the HOOKS.yaml file
+ * @param sourcePath - Optional source path to stamp on each hook's _source field
  */
-export async function loadHooksConfig(filePath: string): Promise<HooksConfig> {
+export async function loadHooksConfig(
+  filePath: string,
+  sourcePath?: string
+): Promise<HooksConfig> {
   let raw: string;
   try {
     raw = await fs.readFile(filePath, 'utf-8');
@@ -251,5 +257,15 @@ export async function loadHooksConfig(filePath: string): Promise<HooksConfig> {
     throw new Error(`Failed to parse HOOKS.yaml: ${message}`);
   }
 
-  return validateConfig(parsed);
+  const config = validateConfig(parsed);
+
+  // Stamp _source on each hook if sourcePath provided
+  if (sourcePath) {
+    const absoluteSource = require('path').resolve(sourcePath);
+    for (const hook of config.hooks) {
+      hook._source = absoluteSource;
+    }
+  }
+
+  return config;
 }
