@@ -148,6 +148,19 @@ export interface HookDefinition {
    * # Script output will be automatically injected into agent context
    */
   injectOutput?: boolean;
+  /**
+   * For exec_script: inline shell script content to execute.
+   * Alternative to 'target' (file path). If both are provided, 'target' takes precedence.
+   * The inline script is written to a temporary file, executed, and cleaned up.
+   * 
+   * @example
+   * action: exec_script
+   * script: |
+   *   #!/bin/bash
+   *   echo "Hello from inline script"
+   *   echo "Hook point: $HOOK_POINT"
+   */
+  script?: string;
   /** Behavior when this hook's action fails or the gate blocks. */
   onFailure?: OnFailure;
   /** Whether to send a user notification when this hook's action fires (e.g. on block). */
