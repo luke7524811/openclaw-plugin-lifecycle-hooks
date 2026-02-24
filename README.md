@@ -39,6 +39,8 @@ npm install @fractal-ai/plugin-lifecycle-hooks
 
 ### 2. Create `HOOKS.yaml` in Your Workspace Root
 
+**Note:** Your production `HOOKS.yaml` lives in your OpenClaw workspace (`~/.openclaw/workspace/`), not this repo.
+
 ```yaml
 version: "1"
 
@@ -471,11 +473,6 @@ Ready-to-use configs in [`examples/`](./examples/):
 | File | What it does |
 |------|--------------|
 | [`rm-guard.yaml`](./examples/rm-guard.yaml) | Block `rm`, `shred`, `rmdir` — main agent and sub-agents |
-| [`topic-logging.yaml`](./examples/topic-logging.yaml) | Auto-summarize turns to per-topic memory files |
-| [`subagent-context.yaml`](./examples/subagent-context.yaml) | Inject AGENTS.md + topic context into every sub-agent |
-| [`heartbeat-dashboard.yaml`](./examples/heartbeat-dashboard.yaml) | Log heartbeats and push to external dashboard via script |
-| [`notification-webhook.yaml`](./examples/notification-webhook.yaml) | Slack/Discord webhook on spawns, completions, and blocks |
-| [`kitchen-sink.yaml`](./examples/kitchen-sink.yaml) | Every hook point and option, fully annotated |
 | [`security.hooks.yaml`](./examples/security.hooks.yaml) | Block rm, sudo, dd, chmod 777, curl-pipe-to-shell |
 | [`logging.hooks.yaml`](./examples/logging.hooks.yaml) | Comprehensive turn/tool/subagent/cron logging |
 | [`delegation.hooks.yaml`](./examples/delegation.hooks.yaml) | Enforce sub-agent delegation for npm, builds, Docker |
@@ -629,11 +626,7 @@ import type {
 
 ## Support
 
-If this plugin has been useful to you, consider supporting its development:
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/luke7524811)
-
-[Support via Buy Me a Coffee](https://buymeacoffee.com/luke7524811)
+If this plugin has been useful to you, consider supporting its development.
 
 ---
 
