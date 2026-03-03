@@ -80,3 +80,49 @@ hooks:
       action: block
       notifyUser: true
       message: "🚫 Blocked: Recursive/forced rm detected. This operation is not permitted."
+
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 6: File System Access Monitor (Semantic Action Types)
+  # Log all file write operations across any tool that writes files.
+  # Uses the "action" filter with semantic categories instead of
+  # enumerating individual tool names. The "fs.*" pattern matches
+  # tools mapped to fs.read, fs.write, fs.delete, fs.create, etc.
+  # ────────────────────────────────────────────────────────────────
+  - point: turn:tool:post
+    match:
+      action: "fs.*"
+    action: log
+    target: "/path/to/workspace/memory/fs-write-audit.jsonl"
+    onFailure:
+      action: continue
+      notifyUser: false
+
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 7: HTTP Request Summary (Semantic Action Types)
+  # Summarize and log all HTTP requests (web_search, web_fetch, etc.)
+  # using an LLM, regardless of which specific tool was used.
+  # ────────────────────────────────────────────────────────────────
+  - point: turn:tool:post
+    match:
+      action: "http.*"
+    action: summarize_and_log
+    model: anthropic/claude-haiku-4-5
+    target: "/path/to/workspace/memory/http-requests.jsonl"
+    onFailure:
+      action: continue
+
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 8: Block External Messaging (Semantic Action Types)
+  # Prevent the agent from sending messages to external platforms
+  # (Telegram, Discord, email, etc.) in certain sensitive contexts.
+  # Uses "messaging.*" to cover all messaging tools.
+  # ────────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      action: "messaging.*"
+      topicId: 42  # Only in this sensitive topic
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "🚫 Blocked: External messaging is not permitted in this topic."

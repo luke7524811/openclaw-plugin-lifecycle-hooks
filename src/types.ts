@@ -49,6 +49,13 @@ export interface MatchFilter {
    * E.g. "^rm\\s" to catch rm calls.
    */
   commandPattern?: string;
+  /**
+   * Match against semantic action category instead of raw tool name.
+   * Supports glob patterns like "fs.*", "shell.*", "http.*".
+   * See action-mapping.ts for the mapping of tools to semantic actions.
+   * Examples: "fs.read", "fs.write", "shell.exec", "http.request", "browser.navigate"
+   */
+  action?: string;
   /** Restrict hook to a specific forum topic ID. */
   topicId?: number | string;
   /**

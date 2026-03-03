@@ -5,6 +5,7 @@
  */
 
 import type { HookDefinition, HookContext, MatchFilter } from './types';
+import { matchesAction } from './action-mapping';
 
 /**
  * Evaluate whether a single MatchFilter criterion matches the given context.
@@ -22,6 +23,12 @@ export async function matchesFilter(
   // Tool name match
   if (filter.tool !== undefined) {
     if (context.toolName !== filter.tool) return false;
+  }
+
+  // Action (semantic) match
+  if (filter.action !== undefined) {
+    if (context.toolName === undefined) return false;
+    if (!matchesAction(context.toolName, filter.action)) return false;
   }
 
   // Command pattern match (regex against toolArgs command/first string arg)
