@@ -1,0 +1,26 @@
+# ============================================================
+# SUBAGENT CONTEXT EXAMPLE
+# ============================================================
+#
+# Demonstrates hooks that fire when sub-agents are spawned and
+# when they execute tools. Useful for logging or policy enforcement.
+#
+# Usage: cp examples/subagent-context.yaml HOOKS.yaml
+# ============================================================
+
+version: "1"
+
+hooks:
+  # Log subagent spawn events
+  - point: subagent:pre
+    action: log
+    target: "/tmp/subagent-spawns.jsonl"
+    onFailure:
+      action: continue
+
+  # Log subagent tool executions
+  - point: subagent:tool:pre
+    action: log
+    target: "/tmp/subagent-tools.jsonl"
+    onFailure:
+      action: continue

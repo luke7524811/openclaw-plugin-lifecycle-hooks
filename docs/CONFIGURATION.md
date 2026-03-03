@@ -229,6 +229,48 @@ match:
 
 Test your regex before deploying: [regex101.com](https://regex101.com) (select JavaScript flavor).
 
+### `resourcePattern`
+
+**Type:** `string` (glob pattern)  
+**Match:** Glob pattern (using `micromatch`) tested against the extracted resource. Supports tilde (`~`) expansion for home directory.
+
+```yaml
+match:
+  resourcePattern: "~/.ssh/**"      # Any file under ~/.ssh/
+  resourcePattern: "**/.env*"       # .env, .env.local, .env.production
+  resourcePattern: "*.pem"           # Any .pem file
+  resourcePattern: "!(test|node_modules)/**"  # Exclude test directories
+```
+
+**Extraction order** — uses the same extraction as `commandPattern`:
+
+1. `toolArgs.command` — exec tool command string
+2. `toolArgs.path` — file tools (Read, Write, Edit)
+3. `toolArgs.file_path` — alternate field name for file path
+4. `toolArgs.url` — browser/web_fetch URL
+5. `toolArgs.message` — message tool content
+6. `context.prompt` — turn-level prompts
+7. Empty string (no match if all above are empty)
+
+**Glob pattern features:**
+
+- `*` — matches any number of characters except path separators
+- `?` — matches exactly one character
+- `**` — matches any number of path segments (recursive)
+- `{a,b}` — alternation (brace expansion)
+- `!` — negation (prefix pattern with `!` to exclude)
+
+**Tilde expansion:** Leading `~` is replaced with the user's home directory (`$HOME`). This works in both the pattern and the extracted resource.
+
+```yaml
+# Block access to SSH keys regardless of which file tool is used
+match:
+  action: "fs.*"
+  resourcePattern: "~/.ssh/**"
+```
+
+See [micromatch documentation](https://github.com/micromatch/micromatch) for advanced glob patterns.
+
 ### `topicId`
 
 **Type:** `number | string`  

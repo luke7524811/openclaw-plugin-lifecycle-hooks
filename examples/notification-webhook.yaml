@@ -1,0 +1,21 @@
+# ============================================================
+# NOTIFICATION WEBHOOK EXAMPLE
+# ============================================================
+#
+# Uses exec_script to send a webhook notification on certain events.
+#
+# Usage: cp examples/notification-webhook.yaml HOOKS.yaml
+# ============================================================
+
+version: "1"
+
+hooks:
+  # On blocked tool call, execute a script to send a webhook
+  - point: turn:tool:pre
+    match:
+      tool: exec
+    action: exec_script
+    script: |
+      curl -X POST https://example.com/notify -d '{"blocked": true}' -H "Content-Type: application/json"
+    onFailure:
+      action: continue

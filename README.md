@@ -403,13 +403,14 @@ Filters narrow when a hook fires. All specified fields must match (AND logic):
 
 ```yaml
 match:
-  action: "fs.*"               # Semantic action category (glob supported)
-  tool: exec                   # Exact tool name
-  commandPattern: "^rm\\s"     # Regex: command, path, url, or prompt
-  topicId: 42                  # Forum topic ID (or "*" for any topic)
-  isSubAgent: false            # true = sub-agent only, false = main only
-  sessionPattern: "telegram:"  # Regex against full session key
-  custom: ./matchers/my.js     # Path to JS module returning boolean
+  action: "fs.*"                   # Semantic action category (glob supported)
+  tool: exec                       # Exact tool name
+  commandPattern: "^rm\\s"         # Regex: command, path, url, or prompt
+  resourcePattern: "~/.ssh/**"     # Glob: file path, URL, or command with ~ expansion
+  topicId: 42                      # Forum topic ID (or "*" for any topic)
+  isSubAgent: false                # true = sub-agent only, false = main only
+  sessionPattern: "telegram:"      # Regex against full session key
+  custom: ./matchers/my.js         # Path to JS module returning boolean
 ```
 
 ### Semantic Action Matching
@@ -456,6 +457,8 @@ Glob patterns are supported: `fs.*` matches both `fs.read` and `fs.write`.
 - `topicId: 42` — Matches only topic 42
 
 `commandPattern` inspects `toolArgs.command` → `toolArgs.path` → `toolArgs.url` → `toolArgs.message` → `context.prompt` in order.
+
+`resourcePattern` uses the same extraction order but matches against a **glob pattern** (via `micromatch`) with automatic tilde (`~`) expansion for home directories. Example: `~/.ssh/**` matches any file under the user's `.ssh` directory.
 
 ---
 

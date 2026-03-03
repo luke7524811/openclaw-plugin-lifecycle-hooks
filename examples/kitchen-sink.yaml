@@ -1,0 +1,78 @@
+# ============================================================
+# KITCHEN SINK EXAMPLE
+# ============================================================
+#
+# A grab-bag of various hook configurations to demonstrate
+# a wide range of features. Serves as a comprehensive reference.
+#
+# Usage: cp examples/kitchen-sink.yaml HOOKS.yaml
+# ============================================================
+
+version: "1"
+
+hooks:
+  # Turn lifecycle
+  - point: turn:pre
+    action: log
+    target: "/tmp/turn-pre.jsonl"
+    onFailure:
+      action: continue
+
+  - point: turn:post
+    action: log
+    target: "/tmp/turn-post.jsonl"
+    onFailure:
+      action: continue
+
+  # Tool execution (main agent)
+  - point: turn:tool:pre
+    action: log
+    target: "/tmp/tool-pre.jsonl"
+    onFailure:
+      action: continue
+
+  # Sub-agent lifecycle
+  - point: subagent:pre
+    action: log
+    target: "/tmp/subagent-pre.jsonl"
+    onFailure:
+      action: continue
+
+  - point: subagent:post
+    action: log
+    target: "/tmp/subagent-post.jsonl"
+    onFailure:
+      action: continue
+
+  # Sub-agent tool calls
+  - point: subagent:tool:pre
+    action: log
+    target: "/tmp/subagent-tool-pre.jsonl"
+    onFailure:
+      action: continue
+
+  # Heartbeat events
+  - point: heartbeat:pre
+    action: log
+    target: "/tmp/heartbeat-pre.jsonl"
+    onFailure:
+      action: continue
+
+  - point: heartbeat:post
+    action: log
+    target: "/tmp/heartbeat-post.jsonl"
+    onFailure:
+      action: continue
+
+  # Cron events
+  - point: cron:pre
+    action: log
+    target: "/tmp/cron-pre.jsonl"
+    onFailure:
+      action: continue
+
+  - point: cron:post
+    action: log
+    target: "/tmp/cron-post.jsonl"
+    onFailure:
+      action: continue

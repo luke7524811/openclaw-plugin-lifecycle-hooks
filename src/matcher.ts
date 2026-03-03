@@ -6,6 +6,7 @@
 
 import type { HookDefinition, HookContext, MatchFilter } from './types';
 import { matchesAction } from './action-mapping';
+import { matchResourcePattern, expandHome } from './resource-utils';
 
 /**
  * Evaluate whether a single MatchFilter criterion matches the given context.
@@ -42,6 +43,12 @@ export async function matchesFilter(
     }
     const subject = extractCommandSubject(context);
     if (!pattern.test(subject)) return false;
+  }
+
+  // Resource pattern match (glob against extracted resource with home expansion)
+  if (filter.resourcePattern !== undefined) {
+    const resource = extractCommandSubject(context);
+    if (!matchResourcePattern(resource, filter.resourcePattern)) return false;
   }
 
   // Topic ID match — "*" means "any topic" (but topicId must exist)

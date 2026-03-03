@@ -1,0 +1,24 @@
+# ============================================================
+# TOPIC LOGGING EXAMPLE
+# ============================================================
+#
+# Logs turn activity to topic-specific log files.
+#
+# Usage: cp examples/topic-logging.yaml HOOKS.yaml
+# ============================================================
+
+version: "1"
+
+hooks:
+  # Log each turn (pre and post) to a per-topic file
+  - point: turn:pre
+    action: log
+    target: "/tmp/topic-{topicId}-turns.jsonl"
+    onFailure:
+      action: continue
+
+  - point: turn:post
+    action: log
+    target: "/tmp/topic-{topicId}-turns.jsonl"
+    onFailure:
+      action: continue

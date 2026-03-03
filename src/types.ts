@@ -56,6 +56,8 @@ export interface MatchFilter {
    * Examples: "fs.read", "fs.write", "shell.exec", "http.request", "browser.navigate"
    */
   action?: string;
+  /** Glob pattern matched against extracted resource (path, URL, command). */
+  resourcePattern?: string;
   /** Restrict hook to a specific forum topic ID. */
   topicId?: number | string;
   /**

@@ -21,6 +21,12 @@ Security enhancements inspired by Predicate-Claw analysis.
   - Maps tool names to action categories via `TOOL_TO_ACTION` constant
   - Enables intent-based policies: "block all file writes to sensitive paths"
 
+- **Resource pattern matching** — Glob-based matching for file paths, URLs, and commands
+  - New `match.resourcePattern` field uses `micromatch` for flexible glob patterns
+  - Supports tilde (`~`) expansion for home directory: `~/.ssh/**`, `~/*.env`
+  - Uses same extraction logic as `commandPattern` (toolArgs.command → path → url → prompt)
+  - Enables policies like "block access to sensitive files" independent of which file tool is used
+
 ## [0.3.0] - TBD
 
 ### Summary

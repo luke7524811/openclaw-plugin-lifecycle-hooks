@@ -126,3 +126,21 @@ hooks:
       action: block
       notifyUser: true
       message: "🚫 Blocked: External messaging is not permitted in this topic."
+
+  # ────────────────────────────────────────────────────────────────
+  # EXAMPLE 9: Block Access to SSH Keys (Resource Pattern Matching)
+  # Use glob patterns to block access to sensitive files. The resourcePattern
+  # matches against the extracted path from tool arguments. Tilde (~) is
+  # automatically expanded to the user's home directory.
+  # ────────────────────────────────────────────────────────────────
+  - point: turn:tool:pre
+    match:
+      action: "fs.read"
+      resourcePattern: "~/.ssh/**"
+    action: block
+    onFailure:
+      action: block
+      notifyUser: true
+      message: "⛔ SSH key access blocked."
+
+  # ────────────────────────────────────────────────────────────────

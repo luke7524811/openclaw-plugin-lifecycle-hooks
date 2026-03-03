@@ -1,0 +1,24 @@
+# ============================================================
+# HEARTBEAT DASHBOARD HOOKS
+# ============================================================
+#
+# Demonstrates heartbeat hook points for periodic checks.
+#
+# Usage: cp examples/heartbeat-dashboard.yaml HOOKS.yaml
+# ============================================================
+
+version: "1"
+
+hooks:
+  # Log at each heartbeat pre and post
+  - point: heartbeat:pre
+    action: log
+    target: "/tmp/heartbeat-pre.jsonl"
+    onFailure:
+      action: continue
+
+  - point: heartbeat:post
+    action: log
+    target: "/tmp/heartbeat-post.jsonl"
+    onFailure:
+      action: continue
