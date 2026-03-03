@@ -153,6 +153,45 @@ Match filters narrow when a hook fires. All fields are **optional** and use **AN
 every field you specify must match for the hook to fire. If `match` is omitted entirely,
 the hook fires for every event at the registered point.
 
+### `action`
+
+**Type:** `string` (glob pattern supported)  
+**Match:** Semantic action category derived from tool name.
+
+Instead of matching on raw tool names, you can match on **intent**. The engine maps tool names
+to semantic action categories, enabling policies like "block all file writes to sensitive paths."
+
+```yaml
+match:
+  action: "fs.write"     # Only fires when writing files (write, edit tools)
+  action: "fs.*"         # Fires for any file operation (glob pattern)
+  action: "http.*"       # Fires for web_search, web_fetch
+```
+
+**Action Category Mapping:**
+
+| Action Category | Tool Names |
+|-----------------|------------|
+| `fs.read` | `read` |
+| `fs.write` | `write`, `edit` |
+| `shell.exec` | `exec` |
+| `http.request` | `web_search`, `web_fetch` |
+| `browser.navigate` | `browser` |
+| `document.read` | `pdf` |
+| `image.analyze` | `image` |
+| `agent.spawn` | `sessions_spawn` |
+| `agent.message` | `sessions_send` |
+| `messaging.send` | `message` |
+| `system.schedule` | `cron` |
+| `system.config` | `gateway` |
+
+Glob patterns are supported:
+- `fs.*` matches `fs.read` and `fs.write`
+- `*.exec` matches `shell.exec`
+- `*` matches all actions
+
+This is useful for security policies that operate at the intent level rather than specific tools.
+
 ### `tool`
 
 **Type:** `string`  
