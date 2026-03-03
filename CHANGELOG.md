@@ -7,6 +7,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.3.2] - TBD
+
+### Summary
+
+Security enhancements inspired by Predicate-Claw analysis.
+
+### Added
+
+- **Semantic action types** — Match hooks by intent, not just tool name
+  - New `match.action` field supports semantic categories: `fs.read`, `fs.write`, `shell.exec`, `http.request`, etc.
+  - Glob patterns supported: `fs.*` matches `fs.read` and `fs.write`
+  - Maps tool names to action categories via `TOOL_TO_ACTION` constant
+  - Enables intent-based policies: "block all file writes to sensitive paths"
+
 ## [0.3.0] - TBD
 
 ### Summary

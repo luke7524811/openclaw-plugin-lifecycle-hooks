@@ -403,6 +403,7 @@ Filters narrow when a hook fires. All specified fields must match (AND logic):
 
 ```yaml
 match:
+  action: "fs.*"               # Semantic action category (glob supported)
   tool: exec                   # Exact tool name
   commandPattern: "^rm\\s"     # Regex: command, path, url, or prompt
   topicId: 42                  # Forum topic ID (or "*" for any topic)
@@ -410,6 +411,45 @@ match:
   sessionPattern: "telegram:"  # Regex against full session key
   custom: ./matchers/my.js     # Path to JS module returning boolean
 ```
+
+### Semantic Action Matching
+
+Instead of matching on raw tool names, you can match on **semantic action categories**:
+
+```yaml
+# Block all file system writes to sensitive paths
+- point: turn:tool:pre
+  match:
+    action: "fs.write"
+    resourcePattern: "~/.ssh/**"
+  action: block
+
+# Log all HTTP requests
+- point: turn:tool:post
+  match:
+    action: "http.*"
+  action: log
+  target: "logs/http-audit.jsonl"
+```
+
+**Action Categories:**
+
+| Action | Tools |
+|--------|-------|
+| `fs.read` | `read`, `glob` |
+| `fs.write` | `write`, `edit` |
+| `shell.exec` | `exec` |
+| `http.request` | `web_search`, `web_fetch` |
+| `browser.*` | `browser` |
+| `document.read` | `pdf` |
+| `image.analyze` | `image` |
+| `agent.spawn` | `sessions_spawn` |
+| `agent.message` | `sessions_send` |
+| `messaging.send` | `message` |
+| `system.schedule` | `cron` |
+| `system.config` | `gateway` |
+
+Glob patterns are supported: `fs.*` matches both `fs.read` and `fs.write`.
 
 **Special matchers:**
 - `topicId: "*"` — Matches any session with a `topicId` field (useful for "all topics" hooks)
