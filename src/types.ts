@@ -18,7 +18,8 @@ export type HookPoint =
   | 'heartbeat:pre'
   | 'heartbeat:post'
   | 'cron:pre'
-  | 'cron:post';
+  | 'cron:post'
+  | 'agent:error';  // Placeholder for future error handling support
 
 // ─── Failure Handling ─────────────────────────────────────────────────────────
 
@@ -216,6 +217,8 @@ export interface HookContext {
   raw?: Record<string, unknown>;
   /** Timestamp when the hook was triggered (ms since epoch). */
   timestamp: number;
+  /** Trace ID for correlating this message through all hooks and sub-agents. */
+  traceId?: string;
 }
 
 // ─── Hook Result ──────────────────────────────────────────────────────────────

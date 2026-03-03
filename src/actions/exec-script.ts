@@ -52,14 +52,22 @@ function buildEnvVars(context: HookContext): NodeJS.ProcessEnv {
     ...process.env,
     HOOK_POINT: context.point,
     HOOK_SESSION: context.sessionKey,
+    HOOK_SESSION_KEY: context.sessionKey,
     HOOK_TOOL: context.toolName ?? '',
     HOOK_ARGS: hookArgs,
     HOOK_TOPIC: context.topicId !== undefined ? String(context.topicId) : '',
+    HOOK_TOPIC_ID: context.topicId !== undefined ? String(context.topicId) : '',
     HOOK_TIMESTAMP: String(context.timestamp),
     HOOK_SUBAGENT: context.sessionKey.includes(':subagent:') ? 'true' : 'false',
     HOOK_SUBAGENT_LABEL: context.subagentLabel ?? '',
     HOOK_CRON_JOB: context.cronJob ?? '',
     HOOK_PROMPT: context.prompt ?? '',
+    HOOK_TRACE_ID: context.traceId ?? '',
+    // Response content for turn:post and subagent:post hooks
+    // HOOK_RESPONSE is the assistant's response text; critical for conv logging scripts
+    HOOK_RESPONSE: context.response ?? '',
+    OPENCLAW_USER_MESSAGE: context.prompt ?? '',
+    OPENCLAW_ASSISTANT_MESSAGE: context.response ?? '',
   };
 }
 

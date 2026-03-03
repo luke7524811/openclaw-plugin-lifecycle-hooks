@@ -29,6 +29,7 @@ const VALID_HOOK_POINTS = new Set([
   'heartbeat:post',
   'cron:pre',
   'cron:post',
+  'agent:error',  // Placeholder for future error handling support
 ]);
 
 const VALID_FAILURE_ACTIONS = new Set(['block', 'retry', 'notify', 'continue']);

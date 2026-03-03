@@ -158,6 +158,12 @@ export class LifecycleGateEngine implements GateEngine {
       return [];
     }
 
+    // Generate a traceId if not already present in the context
+    if (!context.traceId) {
+      const suffix = Math.random().toString(36).slice(2, 6);
+      context.traceId = `t${context.topicId ?? 'none'}-${Date.now()}-${suffix}`;
+    }
+
     const candidates = this.config.hooks;
     const results: HookResult[] = [];
 

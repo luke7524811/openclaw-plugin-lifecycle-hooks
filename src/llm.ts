@@ -43,7 +43,7 @@ function loadProviders(): ProvidersMap {
   if (_providersCache) return _providersCache;
 
   try {
-    const configPath = path.join('/root/.openclaw', 'openclaw.json');
+    const configPath = path.join(process.env.HOME || '/home/conner', '.openclaw', 'openclaw.json');
     const raw = fs.readFileSync(configPath, 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const models = parsed['models'] as Record<string, unknown> | undefined;
